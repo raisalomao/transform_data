@@ -5,7 +5,7 @@ import sys
 
 def main():
     """Run administrative tasks."""
-    os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'projeto_etl.settings')
+    os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'transform_data.settings')
     try:
         from django.core.management import execute_from_command_line
     except ImportError as exc:

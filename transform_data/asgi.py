@@ -1,5 +1,5 @@
 """
-ASGI config for projeto_etl project.
+ASGI config for transform_data project.
 
 It exposes the ASGI callable as a module-level variable named ``application``.
 

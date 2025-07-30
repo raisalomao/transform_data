@@ -10,7 +10,7 @@ def home(request):
     context = {
         'titulo': 'Tratamento de dados',
     }
-    return render(request, 'app/home_page.html', context)
+    return render(request, 'home_page.html', context)
 
 def extract_data(request):
     """
@@ -29,7 +29,7 @@ def extract_data(request):
         'titulo': 'Passo 1: Extração de Dados',
         'tabela_html': tabela_html
     }
-    return render(request, 'app/extract_page.html', context)
+    return render(request, 'extract_page.html', context)
 
 def transform_data(request):
     """
@@ -57,7 +57,7 @@ def transform_data(request):
         'tabela_original_html': df.to_html(classes='table table-danger', index=False),
         'tabela_transformada_html': df_transformado.to_html(classes='table table-success', index=False)
     }
-    return render(request, 'app/transform_page.html', context)
+    return render(request, 'transform_page.html', context)
 
 def load_data(request):
     """
@@ -82,4 +82,4 @@ def load_data(request):
         'csv_data': csv_final,
         'json_data': json_final
     }
-    return render(request, 'app/load_page.html', context)
+    return render(request, 'load_page.html', context)
