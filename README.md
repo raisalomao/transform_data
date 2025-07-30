@@ -1,9 +1,8 @@
-1. Installing dependencies using:
+# 1. Installing dependencies using:
 
-# pip install -r requirements.txt
+- pip install -r requirements.txt
 
-2. Execute using:
+# 2. Execute using:
 
-# py manage.py runserver
-
-It will keep the application active on the local server
+- py manage.py runserver
+- It will keep the application active on the local server
