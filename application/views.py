@@ -2,6 +2,9 @@
 from django.shortcuts import render, redirect
 import pandas as pd
 import io
+import json
+from django.http import JsonResponse
+from .transformations import aplicar_transformacoes  # Importa as funções de transformação
 
 def home(request):
     """
@@ -59,29 +62,47 @@ def extract_data(request):
     return render(request, 'extract_page.html', context)
 
 def transform_data(request):
-    """
-    Transformação e limpeza dos dados carregados da sessão.
-    """
-    # Puxa o DataFrame da sessão
+    """ Prepara a página de transformação interativa, enviando os dados iniciais. """
     dataframe_json = request.session.get('dataframe_json')
     if not dataframe_json:
-        # Se não houver dados na sessão, redireciona para a página de extração
         return redirect('extracting_page')
-
-    df = pd.read_json(io.StringIO(dataframe_json), orient='split')
-    df_transformado = df.copy() # Cria uma cópia para preservar o original
-    # Aqui precisamos realizar todo processo de transformação de dados (provavelmente precisaremos de uma pasta para todos esses métodos)
-    
-    # Salva o DataFrame transformado de volta na sessão para a próxima etapa
-    request.session['dataframe_json_transformado'] = df_transformado.to_json(orient='split')
-
+    df_original = pd.read_json(io.StringIO(dataframe_json), orient='split')
+    request.session['dataframe_original_etl'] = df_original.to_json(orient='split')
+    if 'dataframe_json_transformado' in request.session:
+        del request.session['dataframe_json_transformado']
     context = {
-        'titulo': 'Passo 2: Transformação e Limpeza',
-        'tabela_original_html': df.to_html(classes='table table-danger', index=False),
-        'tabela_transformada_html': df_transformado.to_html(classes='table table-success', index=False)
+        'titulo': 'Passo 2: Transformação Interativa',
+        'tabela_html': df_original.to_html(classes='table table-sm table-striped table-bordered', index=False),
+        'colunas_json': json.dumps(list(df_original.columns))
     }
     return render(request, 'transform_page.html', context)
 
+def apply_transform(request):
+    """
+    Recebe a lista de passos (receita) e aplica no DataFrame original.
+    """
+    if request.method != 'POST':
+        return JsonResponse({'success': False, 'error': 'Método inválido'}, status=405)
+
+    try:
+        df_json = request.session.get('dataframe_original_etl')
+        if not df_json:
+            return JsonResponse({'success': False, 'error': 'Sessão expirada ou dados não encontrados.'}, status=400)
+        df_original = pd.read_json(io.StringIO(df_json), orient='split')
+
+        body = json.loads(request.body)
+        passos = body.get('passos', [])
+
+        df_transformado = aplicar_transformacoes(df_original, passos)
+        request.session['dataframe_json_transformado'] = df_transformado.to_json(orient='split')
+
+        headers = list(df_transformado.columns)
+        rows = df_transformado.to_dict(orient='records')
+        
+        return JsonResponse({'success': True, 'headers': headers, 'rows': rows})
+
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)}, status=500)
 
 def load_data(request):
     """

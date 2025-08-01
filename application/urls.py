@@ -8,4 +8,5 @@ urlpatterns = [
     path('extracting/', views.extract_data, name='extracting_page'),
     path('transforming/', views.transform_data, name='transforming_page'),
     path('loading/', views.load_data, name='loading_page'),
+    path('apply_transform/', views.apply_transform, name='apply_transform'),
 ]

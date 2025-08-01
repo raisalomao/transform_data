@@ -3,41 +3,235 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Transformação - ETL</title>
+    <title>Transformação e Limpeza</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        body { background-color: #f8f9fa; }
+        .control-panel { background-color: white; padding: 1.5rem; border-radius: 0.5rem; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+        .recipe-step { background-color: #e9ecef; padding: 0.5rem 1rem; margin-bottom: 0.5rem; border-radius: 0.25rem; display: flex; justify-content: space-between; align-items: center; }
+        #data-table-container { min-height: 400px; }
+    </style>
 </head>
 <body>
-    <div class="container mt-5">
-        <h1>{{ titulo }}</h1>
-        <p>Aqui os dados são processados. Realizamos limpeza (remoção de nulos), tratamento de inconsistências (estoque negativo) e criação de novas informações (coluna 'Valor_Total_Estoque').</p>
-
-        <div class="row mt-4">
-            <div class="col-md-6">
-                <div class="card">
-                    <div class="card-header bg-danger text-white">
-                        Tabela Original (Antes do Tratamento)
+    <div class="container-fluid p-4">
+        <div class="row">
+            <div class="col-md-4">
+                <div class="control-panel">
+                    <h4>Painel de Transformação</h4>
+                    <hr>
+                    
+                    <div class="mb-3">
+                        <label for="operation-select" class="form-label">1. Escolha uma Operação:</label>
+                        <select class="form-select" id="operation-select">
+                            <option selected disabled>Selecione...</option>
+                            <option value="mudar_case">Mudar Case (Maiúsculas/Minúsculas)</option>
+                            <option value="remover_coluna">Remover Coluna</option>
+                            <option value="apagar_linhas_nulas">Apagar Linhas Nulas</option>
+                            <option value="remover_duplicados">Remover Duplicados</option>
+                            <option value="mudar_tipo_coluna">Mudar Tipo da Coluna</option>
+                            <option value="substituir_valores">Substituir Valores</option>
+                            </select>
                     </div>
-                    <div class="card-body">
-                        {{ tabela_original_html|safe }}
+
+                    <div id="params-container" class="mb-3"></div>
+
+                    <div class="d-grid">
+                        <button class="btn btn-secondary" id="add-step-btn" disabled>2. Adicionar Passo à Receita</button>
+                    </div>
+                    
+                    <hr class="my-4">
+
+                    <h4>Receita de Transformações</h4>
+                    <div id="recipe-list" class="mb-3">
+                        <p class="text-muted">Nenhum passo adicionado ainda.</p>
+                    </div>
+
+                    <div class="d-grid">
+                        <button class="btn btn-success btn-lg" id="apply-all-btn">Aplicar Todas as Transformações</button>
                     </div>
                 </div>
             </div>
-            <div class="col-md-6">
+
+            <div class="col-md-8">
                 <div class="card">
-                    <div class="card-header bg-success text-white">
-                        Tabela Final (Após o Tratamento)
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        Tabela de Dados
+                        <div class="spinner-border text-primary" role="status" id="loading-spinner" style="display: none;">
+                            <span class="visually-hidden">Loading...</span>
+                        </div>
                     </div>
-                    <div class="card-body">
-                        {{ tabela_transformada_html|safe }}
+                    <div class="card-body table-responsive" id="data-table-container">
+                        {{ tabela_html|safe }}
                     </div>
                 </div>
+                 <div class="mt-3 text-end">
+                    <a href="{% url 'extracting_page' %}" class="btn btn-outline-secondary">Voltar para Extração</a>
+                    <a href="{% url 'loading_page' %}" class="btn btn-primary">Avançar para Carregamento</a>
+                </div>
             </div>
-        </div>
-
-        <div class="mt-4">
-            <a href="{% url 'extracting_page' %}" class="btn btn-secondary">Voltar para Extração</a>
-            <a href="{% url 'loading_page' %}" class="btn btn-primary">Avançar para Carregamento</a>
         </div>
     </div>
+
+    <script>
+        // --- ESTADO INICIAL E VARIÁVEIS GLOBAIS ---
+        let colunasAtuais = JSON.parse("{{ colunas_json|escapejs }}");
+        let passosAplicados = []; // A nossa "receita" de transformações
+        
+        const operationSelect = document.getElementById('operation-select');
+        const paramsContainer = document.getElementById('params-container');
+        const addStepBtn = document.getElementById('add-step-btn');
+        const recipeList = document.getElementById('recipe-list');
+        const applyAllBtn = document.getElementById('apply-all-btn');
+        const tableContainer = document.getElementById('data-table-container');
+        const spinner = document.getElementById('loading-spinner');
+        
+        const aplicarReceitaUrl = "{% url 'apply_transform' %}";
+
+        // --- FUNÇÕES AUXILIARES ---
+        function getCsrfToken() {
+            return document.cookie.split('; ').find(row => row.startsWith('csrftoken='))?.split('=')[1];
+        }
+
+        function criarDropdownColunas(id, multiplo=false) {
+            let selectHtml = `<select class="form-select" id="${id}" ${multiplo ? 'multiple' : ''}>`;
+            colunasAtuais.forEach(col => {
+                selectHtml += `<option value="${col}">${col}</option>`;
+            });
+            selectHtml += `</select>`;
+            return selectHtml;
+        }
+
+        function renderizarListaPassos() {
+            if (passosAplicados.length === 0) {
+                recipeList.innerHTML = '<p class="text-muted">Nenhum passo adicionado ainda.</p>';
+                return;
+            }
+            recipeList.innerHTML = '';
+            passosAplicados.forEach((passo, index) => {
+                const stepDiv = document.createElement('div');
+                stepDiv.className = 'recipe-step';
+                stepDiv.innerHTML = `<span>${index + 1}. ${passo.descricao}</span><button class="btn-close" data-index="${index}"></button>`;
+                recipeList.appendChild(stepDiv);
+            });
+        }
+        
+        function renderizarTabela(headers, rows) {
+            colunasAtuais = headers;
+            let tableHtml = '<table class="table table-sm table-striped table-bordered">';
+            tableHtml += '<thead><tr>' + headers.map(h => `<th>${h}</th>`).join('') + '</tr></thead>';
+            tableHtml += '<tbody>';
+            rows.forEach(row => {
+                tableHtml += '<tr>' + headers.map(h => `<td>${row[h] !== null ? String(row[h]) : ''}</td>`).join('') + '</tr>';
+            });
+            tableHtml += '</tbody></table>';
+            tableContainer.innerHTML = tableHtml;
+        }
+
+        // --- LÓGICA PRINCIPAL DA UI ---
+        operationSelect.addEventListener('change', () => {
+            const operacao = operationSelect.value;
+            paramsContainer.innerHTML = '';
+            let inputsHtml = '';
+
+            switch (operacao) {
+                case 'mudar_case':
+                    inputsHtml = `<label class="form-label">Coluna:</label>${criarDropdownColunas('param-nome-coluna')}
+                                  <label class="form-label mt-2">Case:</label>
+                                  <select class="form-select" id="param-case"><option value="upper">MAIÚSCULAS</option><option value="lower">minúsculas</option><option value="title">Título</option></select>`;
+                    break;
+                case 'remover_coluna':
+                    inputsHtml = `<label class="form-label">Colunas para Remover:</label>${criarDropdownColunas('param-nome-coluna', true)}`;
+                    break;
+                case 'apagar_linhas_nulas':
+                    inputsHtml = `<label class="form-label">Verificar Nulos nas Colunas (se vazio, todas):</label>${criarDropdownColunas('param-subset-colunas', true)}`;
+                    break;
+                case 'remover_duplicados':
+                    inputsHtml = `<label class="form-label">Verificar Duplicados nas Colunas (se vazio, todas):</label>${criarDropdownColunas('param-subset-colunas', true)}`;
+                    break;
+                case 'mudar_tipo_coluna':
+                    inputsHtml = `<label class="form-label">Coluna:</label>${criarDropdownColunas('param-nome-coluna')}
+                                  <label class="form-label mt-2">Novo Tipo:</label>
+                                  <select class="form-select" id="param-novo-tipo"><option value="str">Texto (str)</option><option value="int64">Inteiro (int)</option><option value="float64">Decimal (float)</option><option value="datetime">Data/Hora (datetime)</option></select>`;
+                    break;
+                case 'substituir_valores':
+                    inputsHtml = `<label class="form-label">Coluna:</label>${criarDropdownColunas('param-nome-coluna')}
+                                  <label class="form-label mt-2">Substituir o valor:</label><input type="text" class="form-control" id="param-para-substituir">
+                                  <label class="form-label mt-2">Pelo valor:</label><input type="text" class="form-control" id="param-novo-valor">`;
+                    break;
+            }
+            paramsContainer.innerHTML = inputsHtml;
+            addStepBtn.disabled = false;
+        });
+
+        addStepBtn.addEventListener('click', () => {
+            const operacao = operationSelect.value;
+            let parametros = {};
+            let descricao = '';
+            
+            try {
+                switch(operacao) {
+                    case 'mudar_case':
+                        parametros = { nome_coluna: document.getElementById('param-nome-coluna').value, case: document.getElementById('param-case').value };
+                        descricao = `Mudar case de '${parametros.nome_coluna}' para ${parametros.case}`;
+                        break;
+                    case 'remover_coluna':
+                        parametros = { nome_coluna: Array.from(document.getElementById('param-nome-coluna').selectedOptions).map(opt => opt.value) };
+                        descricao = `Remover coluna(s): ${parametros.nome_coluna.join(', ')}`;
+                        break;
+                    case 'apagar_linhas_nulas':
+                    case 'remover_duplicados':
+                        const colunasSel = Array.from(document.getElementById('param-subset-colunas').selectedOptions).map(opt => opt.value);
+                        descricao = colunasSel.length > 0 ? `${operacao} baseado em: ${colunasSel.join(', ')}` : `${operacao} em todas as colunas`;
+                        if (colunasSel.length > 0) parametros = { subset_colunas: colunasSel };
+                        break;
+                    case 'mudar_tipo_coluna':
+                        parametros = { nome_coluna: document.getElementById('param-nome-coluna').value, novo_tipo: document.getElementById('param-novo-tipo').value };
+                        descricao = `Mudar tipo de '${parametros.nome_coluna}' para ${parametros.novo_tipo}`;
+                        break;
+                    case 'substituir_valores':
+                        parametros = {
+                            nome_coluna: document.getElementById('param-nome-coluna').value,
+                            para_substituir: document.getElementById('param-para-substituir').value,
+                            novo_valor: document.getElementById('param-novo-valor').value
+                        };
+                        descricao = `Em '${parametros.nome_coluna}', substituir '${parametros.para_substituir}' por '${parametros.novo_valor}'`;
+                        break;
+                }
+
+                passosAplicados.push({ operacao, parametros, descricao });
+                renderizarListaPassos();
+            } catch (e) {
+                alert("Erro ao adicionar passo: " + e.message);
+            }
+        });
+
+        recipeList.addEventListener('click', (event) => {
+            if (event.target.classList.contains('btn-close')) {
+                const index = parseInt(event.target.dataset.index);
+                passosAplicados.splice(index, 1);
+                renderizarListaPassos();
+            }
+        });
+
+        applyAllBtn.addEventListener('click', () => {
+            spinner.style.display = 'block';
+
+            fetch(aplicarReceitaUrl, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCsrfToken() },
+                body: JSON.stringify({ passos: passosAplicados })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    renderizarTabela(data.headers, data.rows);
+                } else {
+                    alert('Erro ao aplicar transformações: ' + data.error);
+                }
+            })
+            .catch(err => alert('Erro de rede: ' + err))
+            .finally(() => spinner.style.display = 'none');
+        });
+    </script>
 </body>
 </html>
