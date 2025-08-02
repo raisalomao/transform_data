@@ -5,90 +5,131 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Transformação e Limpeza</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
     <style>
         body { background-color: #f8f9fa; }
         .control-panel { background-color: white; padding: 1.5rem; border-radius: 0.5rem; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
         .recipe-step { background-color: #e9ecef; padding: 0.5rem 1rem; margin-bottom: 0.5rem; border-radius: 0.25rem; display: flex; justify-content: space-between; align-items: center; }
-        #data-table-container { min-height: 400px; }
+        #data-table-container { min-height: 400px; max-height: 60vh; overflow-y: auto; }
         .form-text { font-size: 0.8rem; }
         textarea { font-family: monospace; font-size: 0.9rem; }
+        .macro-list-item { cursor: pointer; }
+        .macro-list-item:hover { background-color: #f1f3f5; }
     </style>
 </head>
 <body>
     <div class="container-fluid p-4">
         <div class="row">
-            <div class="col-md-4">
-                <div class="control-panel">
+            <div class="col-lg-4">
+                <div class="control-panel mb-4">
                     <h4>Painel de Transformação</h4>
                     <hr>
-                    
                     <div class="mb-3">
                         <label for="operation-select" class="form-label fw-bold">1. Escolha uma Operação:</label>
                         <select class="form-select" id="operation-select">
-                            <option selected disabled>Selecione...</option>
-                            <optgroup label="Limpeza e Estrutura">
-                                <option value="drop_null_rows">Apagar Linhas Nulas</option>
-                                <option value="drop_duplicates">Remover Duplicados</option>
-                                <option value="drop_column">Remover Coluna</option>
-                                <option value="filter_rows_by_value">Remover Linhas por Valor</option>
-                            </optgroup>
-                            <optgroup label="Formatação e Tipo">
-                                <option value="change_case">Mudar Case (Texto)</option>
-                                <option value="change_column_type">Mudar Tipo da Coluna</option>
-                                <option value="replace_values">Substituir Valores</option>
-                            </optgroup>
-                            <optgroup label="Criação e Extração">
-                                <option value="add_new_column">Adicionar Nova Coluna</option>
-                                <option value="split_by_delimiter">Separar Coluna por Delimitador</option>
-                                <option value="extract_from_date">Extrair de Data (Ano/Mês/Dia)</option>
-                                <option value="conditional_column">Coluna Condicional</option>
-                            </optgroup>
-                            <optgroup label="Agregação">
-                                <option value="group_by">Agrupar por (Group By)</option>
-                            </optgroup>
+                           <option selected disabled>Selecione...</option>
+                           <optgroup label="Limpeza e Estrutura">
+                               <option value="drop_null_rows">Apagar Linhas Nulas</option>
+                               <option value="drop_duplicates">Remover Duplicados</option>
+                               <option value="drop_column">Remover Coluna</option>
+                               <option value="filter_rows_by_value">Remover Linhas por Valor</option>
+                           </optgroup>
+                           <optgroup label="Formatação e Tipo">
+                               <option value="change_case">Mudar Case (Texto)</option>
+                               <option value="change_column_type">Mudar Tipo da Coluna</option>
+                               <option value="replace_values">Substituir Valores</option>
+                           </optgroup>
+                           <optgroup label="Criação e Extração">
+                               <option value="add_new_column">Adicionar Nova Coluna</option>
+                               <option value="split_by_delimiter">Separar Coluna por Delimitador</option>
+                               <option value="extract_from_date">Extrair de Data (Ano/Mês/Dia)</option>
+                               <option value="conditional_column">Coluna Condicional</option>
+                           </optgroup>
+                           <optgroup label="Agregação">
+                               <option value="group_by">Agrupar por (Group By)</option>
+                           </optgroup>
                         </select>
                     </div>
-
                     <div id="params-container" class="mb-3"></div>
-
                     <div class="d-grid">
                         <button class="btn btn-secondary" id="add-step-btn" disabled>2. Adicionar Passo à Lista</button>
                     </div>
-                    
-                    <hr class="my-4">
+                </div>
 
-                    <h4>Lista de Transformações</h4>
-                    <div id="recipe-list" class="mb-3">
-                        <p class="text-muted">Nenhum passo adicionado ainda.</p>
-                    </div>
-
-                    <div class="d-grid">
-                        <button class="btn btn-success btn-lg" id="apply-all-btn">Aplicar e Visualizar</button>
+                <div class="control-panel">
+                    <h4><i class="fas fa-magic me-2"></i>Macros (Salvas no Navegador)</h4>
+                    <hr>
+                    <div id="macro-list-container">
+                        </div>
+                    <div class="d-grid gap-2 mt-3">
+                        <button class="btn btn-info" id="save-macro-btn-modal-trigger">
+                            <i class="fas fa-save me-2"></i>Salvar Tratamento Atual
+                        </button>
                     </div>
                 </div>
             </div>
 
-            <div class="col-md-8">
+            <div class="col-lg-8">
+                <div class="card mb-4">
+                    <div class="card-header">
+                        <h4><i class="fas fa-list-ol me-2"></i>Lista de Transformações</h4>
+                    </div>
+                    <div class="card-body" id="recipe-list">
+                        <p class="text-muted">Nenhum passo adicionado ainda.</p>
+                    </div>
+                </div>
+
                 <div class="card">
                     <div class="card-header d-flex justify-content-between align-items-center">
-                        Tabela de Dados
-                        <div class="spinner-border text-primary" role="status" id="loading-spinner" style="display: none;">
-                            <span class="visually-hidden">Loading...</span>
-                        </div>
+                        Tabela de Dados (Prévia)
+                        <div class="spinner-border text-primary" role="status" id="loading-spinner" style="display: none;"></div>
                     </div>
                     <div class="card-body table-responsive" id="data-table-container">
                         {{ tabela_html|safe }}
                     </div>
                 </div>
-                 <div class="mt-3 text-end">
-                    <a href="{% url 'extracting_page' %}" class="btn btn-outline-secondary">Voltar para Extração</a>
-                    <a href="{% url 'loading_page' %}" class="btn btn-primary">Avançar para Carregamento</a>
+                 <div class="mt-3 d-flex justify-content-between">
+                    <a href="{% url 'extracting_page' %}" class="btn btn-outline-secondary"><i class="fas fa-arrow-left me-2"></i>Voltar</a>
+                    <div>
+                        <button class="btn btn-success me-2" id="apply-all-btn"><i class="fas fa-sync-alt me-2"></i>Aplicar e Visualizar</button>
+                        <button id="btn-avancar-loading" class="btn btn-primary">Avançar para Carregamento<i class="fas fa-arrow-right ms-2"></i></button>
+                    </div>
                 </div>
             </div>
         </div>
     </div>
 
+    <div class="modal fade" id="saveMacroModal" tabindex="-1" aria-labelledby="saveMacroModalLabel" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="saveMacroModalLabel">Salvar Tratamento (Macro)</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="save-macro-form">
+                        <div class="mb-3">
+                            <label for="macro-name" class="form-label">Nome da Macro</label>
+                            <input type="text" class="form-control" id="macro-name" required>
+                            <div class="form-text">Dê um nome curto e descritivo (ex: "Limpeza de Vendas Mensal").</div>
+                        </div>
+                        <div class="mb-3">
+                            <label for="macro-description" class="form-label">Descrição (Opcional)</label>
+                            <textarea class="form-control" id="macro-description" rows="3"></textarea>
+                        </div>
+                    </form>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="button" class="btn btn-primary" id="save-macro-confirm-btn">Salvar Macro</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
     <script>
+        // --- ESTADO E VARIÁVEIS GLOBAIS ---
         let colunasAtuais = JSON.parse("{{ colunas_json|escapejs }}");
         let passosAplicados = [];
         
@@ -97,10 +138,35 @@
         const addStepBtn = document.getElementById('add-step-btn');
         const recipeList = document.getElementById('recipe-list');
         const applyAllBtn = document.getElementById('apply-all-btn');
+        const btnAvancarLoading = document.getElementById('btn-avancar-loading');
         const tableContainer = document.getElementById('data-table-container');
         const spinner = document.getElementById('loading-spinner');
-        const applyTransformUrl = "{% url 'apply_transform' %}";
+        
+        const macroListContainer = document.getElementById('macro-list-container');
+        const saveMacroBtnTrigger = document.getElementById('save-macro-btn-modal-trigger');
+        const saveMacroModalEl = document.getElementById('saveMacroModal');
+        const saveMacroModal = new bootstrap.Modal(saveMacroModalEl);
+        const saveMacroConfirmBtn = document.getElementById('save-macro-confirm-btn');
+        const macroNameInput = document.getElementById('macro-name');
+        const macroDescriptionInput = document.getElementById('macro-description');
 
+        // URLs do Django (apenas as necessárias)
+        const applyTransformUrl = "{% url 'apply_transform' %}";
+        const loadingPageUrl = "{% url 'loading_page' %}";
+
+        // --- FUNÇÕES DE GERENCIAMENTO DE MACROS (LocalStorage) ---
+        const MACRO_STORAGE_KEY = 'etl_macros';
+
+        function getMacrosFromStorage() {
+            const macrosJson = localStorage.getItem(MACRO_STORAGE_KEY);
+            return macrosJson ? JSON.parse(macrosJson) : [];
+        }
+
+        function saveMacrosToStorage(macros) {
+            localStorage.setItem(MACRO_STORAGE_KEY, JSON.stringify(macros));
+        }
+
+        // --- FUNÇÕES AUXILIARES ---
         function getCsrfToken() {
             return document.cookie.split('; ').find(row => row.startsWith('csrftoken='))?.split('=')[1];
         }
@@ -131,37 +197,135 @@
             tableHtml += '<thead><tr>' + headers.map(h => `<th>${h}</th>`).join('') + '</tr></thead>';
             tableHtml += '<tbody>';
             rows.forEach(row => {
-                tableHtml += '<tr>' + headers.map(h => `<td>${row[h] !== null ? String(row[h]) : ''}</td>`).join('') + '</tr>';
+                tableHtml += '<tr>' + headers.map(h => `<td>${row[h] !== null ? String(row[h]).replace(/</g, "&lt;").replace(/>/g, "&gt;") : ''}</td>`).join('') + '</tr>';
             });
             tableHtml += '</tbody></table>';
             tableContainer.innerHTML = tableHtml;
         }
 
+        async function aplicarEProcessar(redirecionarParaLoad = false) {
+            spinner.style.display = 'block';
+            try {
+                const response = await fetch(applyTransformUrl, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCsrfToken() },
+                    body: JSON.stringify({ steps: passosAplicados })
+                });
+                const data = await response.json();
+                if (data.success) {
+                    if (redirecionarParaLoad) {
+                        window.location.href = loadingPageUrl;
+                    } else {
+                        renderizarTabela(data.headers, data.rows);
+                    }
+                } else {
+                    alert('Erro ao aplicar transformações: ' + data.error);
+                }
+            } catch (err) {
+                alert('Erro de rede: ' + err);
+            } finally {
+                spinner.style.display = 'none';
+            }
+        }
+
+        // --- LÓGICA DAS MACROS (LocalStorage) ---
+        function renderizarListaMacros() {
+            const macros = getMacrosFromStorage();
+            if (!macros || macros.length === 0) {
+                macroListContainer.innerHTML = '<p class="text-muted">Nenhuma macro salva.</p>';
+                return;
+            }
+            let listHtml = '<ul class="list-group">';
+            macros.forEach(macro => {
+                listHtml += `<li class="list-group-item list-group-item-action d-flex justify-content-between align-items-center macro-list-item" data-id="${macro.id}" title="${macro.description || ''}">
+                    ${macro.name}
+                    <button class="btn btn-sm btn-outline-danger delete-macro-btn" data-id="${macro.id}"><i class="fas fa-trash-alt"></i></button>
+                </li>`;
+            });
+            listHtml += '</ul>';
+            macroListContainer.innerHTML = listHtml;
+        }
+
+        saveMacroBtnTrigger.addEventListener('click', () => {
+            if (passosAplicados.length === 0) {
+                alert('Adicione pelo menos um passo à lista antes de salvar.');
+                return;
+            }
+            macroNameInput.value = '';
+            macroDescriptionInput.value = '';
+            saveMacroModal.show();
+        });
+
+        saveMacroConfirmBtn.addEventListener('click', () => {
+            const name = macroNameInput.value.trim();
+            const description = macroDescriptionInput.value.trim();
+            if (!name) {
+                alert('O nome da macro é obrigatório.');
+                return;
+            }
+            
+            const macros = getMacrosFromStorage();
+            const newMacro = {
+                id: Date.now(), // ID único baseado no timestamp
+                name: name,
+                description: description,
+                steps: passosAplicados
+            };
+            macros.push(newMacro);
+            saveMacrosToStorage(macros);
+            
+            alert(`Macro "${name}" salva com sucesso no seu navegador!`);
+            saveMacroModal.hide();
+            renderizarListaMacros();
+        });
+
+        macroListContainer.addEventListener('click', (e) => {
+            const target = e.target;
+            const macroItem = target.closest('.macro-list-item');
+            
+            if (target.closest('.delete-macro-btn')) {
+                e.stopPropagation();
+                const macroId = parseInt(target.closest('.delete-macro-btn').dataset.id);
+                if (confirm("Tem certeza que deseja deletar esta macro?")) {
+                    let macros = getMacrosFromStorage();
+                    macros = macros.filter(m => m.id !== macroId);
+                    saveMacrosToStorage(macros);
+                    renderizarListaMacros();
+                }
+            } else if (macroItem) {
+                const macroId = parseInt(macroItem.dataset.id);
+                const macros = getMacrosFromStorage();
+                const macroToLoad = macros.find(m => m.id === macroId);
+                if (macroToLoad) {
+                    passosAplicados = macroToLoad.steps;
+                    renderizarListaPassos();
+                    alert(`Macro "${macroToLoad.name}" carregada! Clique em "Aplicar e Visualizar" para ver o resultado.`);
+                }
+            }
+        });
+
+        // --- EVENT LISTENERS PRINCIPAIS ---
         operationSelect.addEventListener('change', () => {
             const operacao = operationSelect.value;
             paramsContainer.innerHTML = '';
             let inputsHtml = '';
-
+            
             switch (operacao) {
-                // --- Limpeza e Estrutura ---
                 case 'drop_null_rows':
-                    inputsHtml = `<label class="form-label">Verificar Nulos nas Colunas (se vazio, todas):</label>${criarDropdownColunas('param-subset_columns', true)}`;
-                    break;
                 case 'drop_duplicates':
-                    inputsHtml = `<label class="form-label">Verificar Duplicados nas Colunas (se vazio, todas):</label>${criarDropdownColunas('param-subset_columns', true)}`;
+                    inputsHtml = `<label class="form-label">Verificar nas Colunas (se vazio, todas):</label>${criarDropdownColunas('param-subset_columns', true)}`;
                     break;
                 case 'drop_column':
                     inputsHtml = `<label class="form-label">Colunas para Remover:</label>${criarDropdownColunas('param-column_name', true)}`;
                     break;
                 case 'filter_rows_by_value':
-                     inputsHtml = `<label class="form-label">Coluna:</label>${criarDropdownColunas('param-column_name')}
-                                   <label class="form-label mt-2">Remover linhas onde o valor é:</label><input type="text" class="form-control" id="param-value">`;
+                    inputsHtml = `<label class="form-label">Coluna:</label>${criarDropdownColunas('param-column_name')}
+                                  <label class="form-label mt-2">Remover linhas onde o valor é:</label><input type="text" class="form-control" id="param-value">`;
                     break;
-                // --- Formatação e Tipo ---
                 case 'change_case':
                     inputsHtml = `<label class="form-label">Coluna:</label>${criarDropdownColunas('param-column_name')}
                                   <label class="form-label mt-2">Case:</label>
-                                  <select class="form-select" id="param-case"><option value="upper">MAIÚSCULAS</option><option value="lower">minúsculas</option><option value="title">Primeira letra maiúscula</option></select>`;
+                                  <select class="form-select" id="param-case"><option value="upper">MAIÚSCULAS</option><option value="lower">minúsculas</option><option value="title">Primeira Letra Maiúscula</option></select>`;
                     break;
                 case 'change_column_type':
                     inputsHtml = `<label class="form-label">Coluna:</label>${criarDropdownColunas('param-column_name')}
@@ -173,10 +337,9 @@
                                   <label class="form-label mt-2">Substituir o valor:</label><input type="text" class="form-control" id="param-value_to_replace">
                                   <label class="form-label mt-2">Pelo valor:</label><input type="text" class="form-control" id="param-new_value">`;
                     break;
-                // --- Criação e Extração ---
                 case 'add_new_column':
-                     inputsHtml = `<label class="form-label">Nome da Nova Coluna:</label><input type="text" class="form-control" id="param-column_name">
-                                   <label class="form-label mt-2">Valor Padrão:</label><input type="text" class="form-control" id="param-default_value">`;
+                    inputsHtml = `<label class="form-label">Nome da Nova Coluna:</label><input type="text" class="form-control" id="param-column_name">
+                                  <label class="form-label mt-2">Valor Padrão:</label><input type="text" class="form-control" id="param-default_value">`;
                     break;
                 case 'split_by_delimiter':
                     inputsHtml = `<label class="form-label">Coluna para Separar:</label>${criarDropdownColunas('param-column_name')}
@@ -194,7 +357,6 @@
                                   <textarea class="form-control" id="param-conditions" rows="4"></textarea>
                                   <div class="form-text">Ex: [{"condition": ">= 5000", "value": "VIP"}, {"condition": "< 1000", "value": "Novo"}]</div>`;
                     break;
-                // --- Agregação ---
                 case 'group_by':
                     inputsHtml = `<label class="form-label">Agrupar Pelas Colunas:</label>${criarDropdownColunas('param-group_by_columns', true)}
                                   <label class="form-label mt-2">Agregações (formato JSON):</label>
@@ -213,7 +375,6 @@
             
             try {
                 switch(operacao) {
-                    // --- Leitura dos parâmetros ---
                     case 'drop_null_rows':
                     case 'drop_duplicates':
                         const colunasSubset = Array.from(document.getElementById('param-subset_columns').selectedOptions).map(opt => opt.value);
@@ -292,23 +453,12 @@
             }
         });
 
-        applyAllBtn.addEventListener('click', () => {
-            spinner.style.display = 'block';
-            fetch(applyTransformUrl, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCsrfToken() },
-                body: JSON.stringify({ steps: passosAplicados })
-            })
-            .then(response => response.json())
-            .then(data => {
-                if (data.success) {
-                    renderizarTabela(data.headers, data.rows);
-                } else {
-                    alert('Erro ao aplicar transformações: ' + data.error);
-                }
-            })
-            .catch(err => alert('Erro de rede: ' + err))
-            .finally(() => spinner.style.display = 'none');
+        applyAllBtn.addEventListener('click', () => aplicarEProcessar(false));
+        btnAvancarLoading.addEventListener('click', () => aplicarEProcessar(true));
+
+        // --- INICIALIZAÇÃO ---
+        document.addEventListener('DOMContentLoaded', () => {
+            renderizarListaMacros();
         });
     </script>
 </body>

@@ -12,4 +12,5 @@ urlpatterns = [
     path('download/csv/', views.download_csv, name='download_csv'),
     path('download/json/', views.download_json_file, name='download_json'),
     path('download/excel/', views.download_excel, name='download_excel'),   
+    
 ]
