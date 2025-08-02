@@ -62,24 +62,18 @@ def extract_data(request):
     return render(request, 'extract_page.html', context)
 
 def transform_data(request):
-    """ Prepara a página de transformação, enviando dados para o HTML e para o JavaScript. """
+    """ Prepara a página de transformação interativa, enviando os dados iniciais. """
     dataframe_json = request.session.get('dataframe_json')
     if not dataframe_json:
         return redirect('extracting_page')
-    
     df_original = pd.read_json(io.StringIO(dataframe_json), orient='split')
     request.session['dataframe_original_etl'] = df_original.to_json(orient='split')
-
     if 'dataframe_json_transformado' in request.session:
         del request.session['dataframe_json_transformado']
-
     context = {
         'titulo': 'Passo 2: Transformação Interativa',
-        # Gera o HTML inicial com um limite de 100 linhas para não sobrecarregar
-        'tabela_html': df_original.head(100).to_html(classes='table table-sm table-striped table-bordered', index=False),
-        # Envia os dados completos como JSON para o JavaScript manipular
-        'colunas_json': json.dumps(list(df_original.columns)),
-        'linhas_json': df_original.to_json(orient='records')
+        'tabela_html': df_original.to_html(classes='table table-sm table-striped table-bordered', index=False),
+        'colunas_json': json.dumps(list(df_original.columns))
     }
     return render(request, 'transform_page.html', context)
 
