@@ -1,0 +1,10 @@
+@keyframes flutuar {
+    0% { transform: translateY(0); }
+    50% { transform: translateY(-10px); }
+    100% { transform: translateY(0); }
+}
+
+.icone-animado {
+    width: 80px;
+    animation: flutuar 3s ease-in-out infinite;
+}
