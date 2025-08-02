@@ -1,0 +1,5 @@
+#preview-content table th,
+#preview-content table td {
+    text-align: center;
+    vertical-align: middle;
+}

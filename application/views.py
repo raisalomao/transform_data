@@ -3,16 +3,16 @@ import pandas as pd
 import io
 import json
 from django.http import HttpResponse, JsonResponse
+
 from .transformations import apply_transformations
 
 def home(request):
     """
-    Tela de boas-vindas para a aplicaÃ§Ã£o. Limpa a sessÃ£o.
+    Tela de boas-vindas para a aplicação
     """
-    for key in list(request.session.keys()):
-        if 'dataframe' in key:
-            del request.session[key]
-    
+    if 'dataframe_json' in request.session:
+        del request.session['dataframe_json']
+
     context = {
         'titulo': 'Tratamento de dados',
     }
@@ -21,8 +21,9 @@ def home(request):
 def extract_data(request):
     """
     Extração de dados via upload de arquivo (CSV, XLSX, JSON).
+    Mostra um preview em um modal.
     """
-    context = {'titulo': 'Passo 1: Extração de Dados'}
+    context = {'titulo': 'Extraindo seus dados'}
 
     if request.method == 'POST' and request.FILES.get('arquivo_dados'):
         arquivo = request.FILES['arquivo_dados']
@@ -41,47 +42,48 @@ def extract_data(request):
                 context['erro'] = 'Formato de arquivo não suportado. Use CSV, XLSX ou JSON.'
                 return render(request, 'extract_page.html', context)
 
-            # Armazena o DataFrame original na sessão para ser usado nas transformações
-            request.session['dataframe_original_etl'] = df.to_json(orient='split')
-            
-            # Redireciona para a página de transformação
-            return redirect('transforming_page')
+            request.session['dataframe_json'] = df.to_json(orient='split')
+            preview_df = df.head(10)
+            context['preview_html'] = preview_df.to_html(classes='table table-sm table-bordered table-striped text-center', index=False)
+            context['nome_arquivo'] = nome_arquivo
 
         except Exception as e:
             if 'Error tokenizing data' in str(e) and nome_arquivo.endswith('.csv'):
-                context['erro'] = f"Ocorreu um erro ao processar o CSV. Verifique se o separador ('{separador_csv}') está correto para este arquivo."
+                 context['erro'] = f"Ocorreu um erro ao processar o CSV. Verifique se o separador ('{separador_csv}') está correto para este arquivo."
             else:
                 context['erro'] = f"Ocorreu um erro ao processar o arquivo: {e}"
-
     return render(request, 'extract_page.html', context)
 
 def transform_data(request):
-<<<<<<< HEAD
-    """ Prepara a página de transformação, enviando os dados iniciais para o template. """
-    dataframe_json = request.session.get('dataframe_original_etl')
-=======
-    """ Prepara a página de transformação interativa, enviando os dados iniciais. """
+    """
+    Prepara a página de transformação interativa, enviando os dados iniciais.
+    Também pode retornar apenas os dados em JSON se houver row_limit na query.
+    """
     dataframe_json = request.session.get('dataframe_json')
->>>>>>> 99feb64ef66b7ab52f4c194b5bad2ffa88fc7b34
     if not dataframe_json:
         return redirect('extracting_page')
-    df_original = pd.read_json(io.StringIO(dataframe_json), orient='split')
-<<<<<<< HEAD
 
-=======
+    df_original = pd.read_json(io.StringIO(dataframe_json), orient='split')
+    if request.headers.get('x-requested-with') == 'XMLHttpRequest':
+        row_limit = int(request.GET.get('row_limit', 100))
+        if row_limit != -1:
+            df_limited = df_original.head(row_limit)
+        else:
+            df_limited = df_original
+        return JsonResponse({
+            'success': True,
+            'headers': list(df_limited.columns),
+            'rows': df_limited.to_dict(orient='records')
+        })
+
     request.session['dataframe_original_etl'] = df_original.to_json(orient='split')
->>>>>>> 99feb64ef66b7ab52f4c194b5bad2ffa88fc7b34
     if 'dataframe_json_transformado' in request.session:
         del request.session['dataframe_json_transformado']
+
     context = {
-        'titulo': 'Passo 2: Transformação Interativa',
-<<<<<<< HEAD
-        'tabela_html': df_original.head(100).to_html(classes='table table-sm table-striped table-bordered', index=False),
-        'colunas_json': json.dumps(list(df_original.columns)),
-=======
-        'tabela_html': df_original.to_html(classes='table table-sm table-striped table-bordered', index=False),
+        'titulo': 'Transformando e tratando seus dados',
+        'tabela_html': df_original.head(100).to_html(classes='table table-sm table-striped table-bordered text-center', index=False),
         'colunas_json': json.dumps(list(df_original.columns))
->>>>>>> 99feb64ef66b7ab52f4c194b5bad2ffa88fc7b34
     }
     return render(request, 'transform_page.html', context)
 
@@ -100,13 +102,10 @@ def apply_transform(request):
 
         body = json.loads(request.body)
         steps = body.get('steps', [])
-
         df_transformado = apply_transformations(df_original, steps)
         request.session['dataframe_json_transformado'] = df_transformado.to_json(orient='split')
-
         headers = list(df_transformado.columns)
         rows = df_transformado.to_dict(orient='records')
-        
         return JsonResponse({'success': True, 'headers': headers, 'rows': rows})
 
     except Exception as e:
@@ -114,17 +113,23 @@ def apply_transform(request):
 
 def load_data(request):
     """
-    Carregamento/Exportação dos dados finais a partir da sessão.
+    Carregamento/Exportação dos dados finais a partir da sessão,
+    com prévia de 10 linhas e estilo completo.
     """
     dataframe_json = request.session.get('dataframe_json_transformado')
+    
     if not dataframe_json:
-        return redirect('extracting_page')
+        dataframe_json = request.session.get('dataframe_original_etl')
+        if not dataframe_json:
+             return redirect('extracting_page')
 
     df_final = pd.read_json(io.StringIO(dataframe_json), orient='split')
+    df_preview = df_final.head(10)
 
     context = {
-        'titulo': 'Passo 3: Carregamento e Exportação',
-        'tabela_final_html': df_final.to_html(classes='table table-primary', index=False)
+        'titulo': 'Carregando e exportando seus dados',
+        'tabela_final_html': df_preview.to_html(classes='table table-primary text-center', index=False),
+
     }
     return render(request, 'load_page.html', context)
 
@@ -137,10 +142,8 @@ def download_csv(request):
         return redirect('extracting_page')
     
     df_final = pd.read_json(io.StringIO(dataframe_json), orient='split')
-    
     response = HttpResponse(content_type='text/csv; charset=utf-8')
     response['Content-Disposition'] = 'attachment; filename="dados_transformados.csv"'
-    
     df_final.to_csv(path_or_buf=response, index=False, sep=';', decimal=',')
     return response
 
@@ -153,10 +156,8 @@ def download_json_file(request):
         return redirect('extracting_page')
     
     df_final = pd.read_json(io.StringIO(dataframe_json), orient='split')
-    
     response = HttpResponse(content_type='application/json')
     response['Content-Disposition'] = 'attachment; filename="dados_transformados.json"'
-    
     response.write(df_final.to_json(orient='records', indent=4))
     return response
 
@@ -167,13 +168,11 @@ def download_excel(request):
     dataframe_json = request.session.get('dataframe_json_transformado')
     if not dataframe_json:
         return redirect('extracting_page')
-    
+
     df_final = pd.read_json(io.StringIO(dataframe_json), orient='split')
-    
     output = io.BytesIO()
     with pd.ExcelWriter(output, engine='openpyxl') as writer:
         df_final.to_excel(writer, index=False, sheet_name='Dados')
-    
     output.seek(0)
     
     response = HttpResponse(
