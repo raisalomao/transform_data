@@ -7,7 +7,7 @@ from .transformations import apply_transformations
 
 def home(request):
     """
-    Tela de boas-vindas para a aplicação. Limpa a sessão.
+    Tela de boas-vindas para a aplicaÃ§Ã£o. Limpa a sessÃ£o.
     """
     for key in list(request.session.keys()):
         if 'dataframe' in key:
@@ -56,20 +56,32 @@ def extract_data(request):
     return render(request, 'extract_page.html', context)
 
 def transform_data(request):
+<<<<<<< HEAD
     """ Prepara a página de transformação, enviando os dados iniciais para o template. """
     dataframe_json = request.session.get('dataframe_original_etl')
+=======
+    """ Prepara a página de transformação interativa, enviando os dados iniciais. """
+    dataframe_json = request.session.get('dataframe_json')
+>>>>>>> 99feb64ef66b7ab52f4c194b5bad2ffa88fc7b34
     if not dataframe_json:
         return redirect('extracting_page')
-    
     df_original = pd.read_json(io.StringIO(dataframe_json), orient='split')
+<<<<<<< HEAD
 
+=======
+    request.session['dataframe_original_etl'] = df_original.to_json(orient='split')
+>>>>>>> 99feb64ef66b7ab52f4c194b5bad2ffa88fc7b34
     if 'dataframe_json_transformado' in request.session:
         del request.session['dataframe_json_transformado']
-
     context = {
         'titulo': 'Passo 2: Transformação Interativa',
+<<<<<<< HEAD
         'tabela_html': df_original.head(100).to_html(classes='table table-sm table-striped table-bordered', index=False),
         'colunas_json': json.dumps(list(df_original.columns)),
+=======
+        'tabela_html': df_original.to_html(classes='table table-sm table-striped table-bordered', index=False),
+        'colunas_json': json.dumps(list(df_original.columns))
+>>>>>>> 99feb64ef66b7ab52f4c194b5bad2ffa88fc7b34
     }
     return render(request, 'transform_page.html', context)
 
