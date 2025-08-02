@@ -10,6 +10,8 @@
         .control-panel { background-color: white; padding: 1.5rem; border-radius: 0.5rem; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
         .recipe-step { background-color: #e9ecef; padding: 0.5rem 1rem; margin-bottom: 0.5rem; border-radius: 0.25rem; display: flex; justify-content: space-between; align-items: center; }
         #data-table-container { min-height: 400px; }
+        .form-text { font-size: 0.8rem; }
+        textarea { font-family: monospace; font-size: 0.9rem; }
     </style>
 </head>
 <body>
@@ -21,33 +23,47 @@
                     <hr>
                     
                     <div class="mb-3">
-                        <label for="operation-select" class="form-label">1. Escolha uma Operação:</label>
+                        <label for="operation-select" class="form-label fw-bold">1. Escolha uma Operação:</label>
                         <select class="form-select" id="operation-select">
                             <option selected disabled>Selecione...</option>
-                            <option value="mudar_case">Mudar Case (Maiúsculas/Minúsculas)</option>
-                            <option value="remover_coluna">Remover Coluna</option>
-                            <option value="apagar_linhas_nulas">Apagar Linhas Nulas</option>
-                            <option value="remover_duplicados">Remover Duplicados</option>
-                            <option value="mudar_tipo_coluna">Mudar Tipo da Coluna</option>
-                            <option value="substituir_valores">Substituir Valores</option>
-                            </select>
+                            <optgroup label="Limpeza e Estrutura">
+                                <option value="drop_null_rows">Apagar Linhas Nulas</option>
+                                <option value="drop_duplicates">Remover Duplicados</option>
+                                <option value="drop_column">Remover Coluna</option>
+                                <option value="filter_rows_by_value">Remover Linhas por Valor</option>
+                            </optgroup>
+                            <optgroup label="Formatação e Tipo">
+                                <option value="change_case">Mudar Case (Texto)</option>
+                                <option value="change_column_type">Mudar Tipo da Coluna</option>
+                                <option value="replace_values">Substituir Valores</option>
+                            </optgroup>
+                            <optgroup label="Criação e Extração">
+                                <option value="add_new_column">Adicionar Nova Coluna</option>
+                                <option value="split_by_delimiter">Separar Coluna por Delimitador</option>
+                                <option value="extract_from_date">Extrair de Data (Ano/Mês/Dia)</option>
+                                <option value="conditional_column">Coluna Condicional</option>
+                            </optgroup>
+                            <optgroup label="Agregação">
+                                <option value="group_by">Agrupar por (Group By)</option>
+                            </optgroup>
+                        </select>
                     </div>
 
                     <div id="params-container" class="mb-3"></div>
 
                     <div class="d-grid">
-                        <button class="btn btn-secondary" id="add-step-btn" disabled>2. Adicionar Passo à Receita</button>
+                        <button class="btn btn-secondary" id="add-step-btn" disabled>2. Adicionar Passo à Lista</button>
                     </div>
                     
                     <hr class="my-4">
 
-                    <h4>Receita de Transformações</h4>
+                    <h4>Lista de Transformações</h4>
                     <div id="recipe-list" class="mb-3">
                         <p class="text-muted">Nenhum passo adicionado ainda.</p>
                     </div>
 
                     <div class="d-grid">
-                        <button class="btn btn-success btn-lg" id="apply-all-btn">Aplicar Todas as Transformações</button>
+                        <button class="btn btn-success btn-lg" id="apply-all-btn">Aplicar e Visualizar</button>
                     </div>
                 </div>
             </div>
@@ -73,9 +89,8 @@
     </div>
 
     <script>
-        // --- ESTADO INICIAL E VARIÁVEIS GLOBAIS ---
         let colunasAtuais = JSON.parse("{{ colunas_json|escapejs }}");
-        let passosAplicados = []; // A nossa "receita" de transformações
+        let passosAplicados = [];
         
         const operationSelect = document.getElementById('operation-select');
         const paramsContainer = document.getElementById('params-container');
@@ -84,21 +99,16 @@
         const applyAllBtn = document.getElementById('apply-all-btn');
         const tableContainer = document.getElementById('data-table-container');
         const spinner = document.getElementById('loading-spinner');
-        
-        const aplicarReceitaUrl = "{% url 'apply_transform' %}";
+        const applyTransformUrl = "{% url 'apply_transform' %}";
 
-        // --- FUNÇÕES AUXILIARES ---
         function getCsrfToken() {
             return document.cookie.split('; ').find(row => row.startsWith('csrftoken='))?.split('=')[1];
         }
 
-        function criarDropdownColunas(id, multiplo=false) {
+        function criarDropdownColunas(id, multiplo = false) {
             let selectHtml = `<select class="form-select" id="${id}" ${multiplo ? 'multiple' : ''}>`;
-            colunasAtuais.forEach(col => {
-                selectHtml += `<option value="${col}">${col}</option>`;
-            });
-            selectHtml += `</select>`;
-            return selectHtml;
+            colunasAtuais.forEach(col => { selectHtml += `<option value="${col}">${col}</option>`; });
+            return selectHtml + `</select>`;
         }
 
         function renderizarListaPassos() {
@@ -127,36 +137,69 @@
             tableContainer.innerHTML = tableHtml;
         }
 
-        // --- LÓGICA PRINCIPAL DA UI ---
         operationSelect.addEventListener('change', () => {
             const operacao = operationSelect.value;
             paramsContainer.innerHTML = '';
             let inputsHtml = '';
 
             switch (operacao) {
-                case 'mudar_case':
-                    inputsHtml = `<label class="form-label">Coluna:</label>${criarDropdownColunas('param-nome-coluna')}
+                // --- Limpeza e Estrutura ---
+                case 'drop_null_rows':
+                    inputsHtml = `<label class="form-label">Verificar Nulos nas Colunas (se vazio, todas):</label>${criarDropdownColunas('param-subset_columns', true)}`;
+                    break;
+                case 'drop_duplicates':
+                    inputsHtml = `<label class="form-label">Verificar Duplicados nas Colunas (se vazio, todas):</label>${criarDropdownColunas('param-subset_columns', true)}`;
+                    break;
+                case 'drop_column':
+                    inputsHtml = `<label class="form-label">Colunas para Remover:</label>${criarDropdownColunas('param-column_name', true)}`;
+                    break;
+                case 'filter_rows_by_value':
+                     inputsHtml = `<label class="form-label">Coluna:</label>${criarDropdownColunas('param-column_name')}
+                                   <label class="form-label mt-2">Remover linhas onde o valor é:</label><input type="text" class="form-control" id="param-value">`;
+                    break;
+                // --- Formatação e Tipo ---
+                case 'change_case':
+                    inputsHtml = `<label class="form-label">Coluna:</label>${criarDropdownColunas('param-column_name')}
                                   <label class="form-label mt-2">Case:</label>
-                                  <select class="form-select" id="param-case"><option value="upper">MAIÚSCULAS</option><option value="lower">minúsculas</option><option value="title">Título</option></select>`;
+                                  <select class="form-select" id="param-case"><option value="upper">MAIÚSCULAS</option><option value="lower">minúsculas</option><option value="title">Primeira letra maiúscula</option></select>`;
                     break;
-                case 'remover_coluna':
-                    inputsHtml = `<label class="form-label">Colunas para Remover:</label>${criarDropdownColunas('param-nome-coluna', true)}`;
-                    break;
-                case 'apagar_linhas_nulas':
-                    inputsHtml = `<label class="form-label">Verificar Nulos nas Colunas (se vazio, todas):</label>${criarDropdownColunas('param-subset-colunas', true)}`;
-                    break;
-                case 'remover_duplicados':
-                    inputsHtml = `<label class="form-label">Verificar Duplicados nas Colunas (se vazio, todas):</label>${criarDropdownColunas('param-subset-colunas', true)}`;
-                    break;
-                case 'mudar_tipo_coluna':
-                    inputsHtml = `<label class="form-label">Coluna:</label>${criarDropdownColunas('param-nome-coluna')}
+                case 'change_column_type':
+                    inputsHtml = `<label class="form-label">Coluna:</label>${criarDropdownColunas('param-column_name')}
                                   <label class="form-label mt-2">Novo Tipo:</label>
-                                  <select class="form-select" id="param-novo-tipo"><option value="str">Texto (str)</option><option value="int64">Inteiro (int)</option><option value="float64">Decimal (float)</option><option value="datetime">Data/Hora (datetime)</option></select>`;
+                                  <select class="form-select" id="param-new_type"><option value="str">Texto</option><option value="int64">Inteiro</option><option value="float64">Decimal</option><option value="datetime">Data/Hora</option></select>`;
                     break;
-                case 'substituir_valores':
-                    inputsHtml = `<label class="form-label">Coluna:</label>${criarDropdownColunas('param-nome-coluna')}
-                                  <label class="form-label mt-2">Substituir o valor:</label><input type="text" class="form-control" id="param-para-substituir">
-                                  <label class="form-label mt-2">Pelo valor:</label><input type="text" class="form-control" id="param-novo-valor">`;
+                case 'replace_values':
+                    inputsHtml = `<label class="form-label">Coluna:</label>${criarDropdownColunas('param-column_name')}
+                                  <label class="form-label mt-2">Substituir o valor:</label><input type="text" class="form-control" id="param-value_to_replace">
+                                  <label class="form-label mt-2">Pelo valor:</label><input type="text" class="form-control" id="param-new_value">`;
+                    break;
+                // --- Criação e Extração ---
+                case 'add_new_column':
+                     inputsHtml = `<label class="form-label">Nome da Nova Coluna:</label><input type="text" class="form-control" id="param-column_name">
+                                   <label class="form-label mt-2">Valor Padrão:</label><input type="text" class="form-control" id="param-default_value">`;
+                    break;
+                case 'split_by_delimiter':
+                    inputsHtml = `<label class="form-label">Coluna para Separar:</label>${criarDropdownColunas('param-column_name')}
+                                  <label class="form-label mt-2">Delimitador:</label><input type="text" class="form-control" id="param-delimiter" placeholder="Ex: , ou -">
+                                  <label class="form-label mt-2">Nomes das Novas Colunas (separados por vírgula):</label><input type="text" class="form-control" id="param-new_column_names" placeholder="Ex: ColunaA,ColunaB">`;
+                    break;
+                case 'extract_from_date':
+                    inputsHtml = `<label class="form-label">Coluna de Data:</label>${criarDropdownColunas('param-column_name')}`;
+                    break;
+                case 'conditional_column':
+                    inputsHtml = `<label class="form-label">Nome da Nova Coluna:</label><input type="text" class="form-control" id="param-new_column_name">
+                                  <label class="form-label mt-2">Coluna Base para Condição:</label>${criarDropdownColunas('param-base_column')}
+                                  <label class="form-label mt-2">Valor Padrão (Default):</label><input type="text" class="form-control" id="param-default_value">
+                                  <label class="form-label mt-2">Condições (formato JSON):</label>
+                                  <textarea class="form-control" id="param-conditions" rows="4"></textarea>
+                                  <div class="form-text">Ex: [{"condition": ">= 5000", "value": "VIP"}, {"condition": "< 1000", "value": "Novo"}]</div>`;
+                    break;
+                // --- Agregação ---
+                case 'group_by':
+                    inputsHtml = `<label class="form-label">Agrupar Pelas Colunas:</label>${criarDropdownColunas('param-group_by_columns', true)}
+                                  <label class="form-label mt-2">Agregações (formato JSON):</label>
+                                  <textarea class="form-control" id="param-aggregations" rows="3"></textarea>
+                                  <div class="form-text">Ex: {"Preco": "sum", "Estoque": "mean"}</div>`;
                     break;
             }
             paramsContainer.innerHTML = inputsHtml;
@@ -170,38 +213,74 @@
             
             try {
                 switch(operacao) {
-                    case 'mudar_case':
-                        parametros = { nome_coluna: document.getElementById('param-nome-coluna').value, case: document.getElementById('param-case').value };
-                        descricao = `Mudar case de '${parametros.nome_coluna}' para ${parametros.case}`;
+                    // --- Leitura dos parâmetros ---
+                    case 'drop_null_rows':
+                    case 'drop_duplicates':
+                        const colunasSubset = Array.from(document.getElementById('param-subset_columns').selectedOptions).map(opt => opt.value);
+                        descricao = colunasSubset.length > 0 ? `${operacao} baseado em: ${colunasSubset.join(', ')}` : `${operacao} em todas as colunas`;
+                        if (colunasSubset.length > 0) parametros = { subset_columns: colunasSubset };
                         break;
-                    case 'remover_coluna':
-                        parametros = { nome_coluna: Array.from(document.getElementById('param-nome-coluna').selectedOptions).map(opt => opt.value) };
-                        descricao = `Remover coluna(s): ${parametros.nome_coluna.join(', ')}`;
+                    case 'drop_column':
+                        parametros = { column_name: Array.from(document.getElementById('param-column_name').selectedOptions).map(opt => opt.value) };
+                        descricao = `Remover coluna(s): ${parametros.column_name.join(', ')}`;
                         break;
-                    case 'apagar_linhas_nulas':
-                    case 'remover_duplicados':
-                        const colunasSel = Array.from(document.getElementById('param-subset-colunas').selectedOptions).map(opt => opt.value);
-                        descricao = colunasSel.length > 0 ? `${operacao} baseado em: ${colunasSel.join(', ')}` : `${operacao} em todas as colunas`;
-                        if (colunasSel.length > 0) parametros = { subset_colunas: colunasSel };
+                    case 'change_case':
+                        parametros = { column_name: document.getElementById('param-column_name').value, case: document.getElementById('param-case').value };
+                        descricao = `Mudar case de '${parametros.column_name}' para ${parametros.case}`;
                         break;
-                    case 'mudar_tipo_coluna':
-                        parametros = { nome_coluna: document.getElementById('param-nome-coluna').value, novo_tipo: document.getElementById('param-novo-tipo').value };
-                        descricao = `Mudar tipo de '${parametros.nome_coluna}' para ${parametros.novo_tipo}`;
+                    case 'change_column_type':
+                        parametros = { column_name: document.getElementById('param-column_name').value, new_type: document.getElementById('param-new_type').value };
+                        descricao = `Mudar tipo de '${parametros.column_name}' para ${parametros.new_type}`;
                         break;
-                    case 'substituir_valores':
+                    case 'replace_values':
                         parametros = {
-                            nome_coluna: document.getElementById('param-nome-coluna').value,
-                            para_substituir: document.getElementById('param-para-substituir').value,
-                            novo_valor: document.getElementById('param-novo-valor').value
+                            column_name: document.getElementById('param-column_name').value,
+                            value_to_replace: document.getElementById('param-value_to_replace').value,
+                            new_value: document.getElementById('param-new_value').value
                         };
-                        descricao = `Em '${parametros.nome_coluna}', substituir '${parametros.para_substituir}' por '${parametros.novo_valor}'`;
+                        descricao = `Em '${parametros.column_name}', substituir '${parametros.value_to_replace}' por '${parametros.new_value}'`;
+                        break;
+                    case 'add_new_column':
+                        parametros = { column_name: document.getElementById('param-column_name').value, default_value: document.getElementById('param-default_value').value };
+                        descricao = `Adicionar coluna '${parametros.column_name}' com valor '${parametros.default_value}'`;
+                        break;
+                    case 'filter_rows_by_value':
+                        parametros = { column_name: document.getElementById('param-column_name').value, value: document.getElementById('param-value').value };
+                        descricao = `Remover linhas onde '${parametros.column_name}' é '${parametros.value}'`;
+                        break;
+                    case 'extract_from_date':
+                        parametros = { column_name: document.getElementById('param-column_name').value };
+                        descricao = `Extrair Ano/Mês/Dia de '${parametros.column_name}'`;
+                        break;
+                    case 'split_by_delimiter':
+                        parametros = {
+                            column_name: document.getElementById('param-column_name').value,
+                            delimiter: document.getElementById('param-delimiter').value,
+                            new_column_names: document.getElementById('param-new_column_names').value.split(',').map(s => s.trim())
+                        };
+                        descricao = `Separar '${parametros.column_name}' por '${parametros.delimiter}'`;
+                        break;
+                    case 'conditional_column':
+                        parametros = {
+                            new_column_name: document.getElementById('param-new_column_name').value,
+                            base_column: document.getElementById('param-base_column').value,
+                            default_value: document.getElementById('param-default_value').value,
+                            conditions: JSON.parse(document.getElementById('param-conditions').value)
+                        };
+                        descricao = `Criar coluna condicional '${parametros.new_column_name}'`;
+                        break;
+                    case 'group_by':
+                        parametros = {
+                            group_by_columns: Array.from(document.getElementById('param-group_by_columns').selectedOptions).map(opt => opt.value),
+                            aggregations: JSON.parse(document.getElementById('param-aggregations').value)
+                        };
+                        descricao = `Agrupar por ${parametros.group_by_columns.join(', ')}`;
                         break;
                 }
-
-                passosAplicados.push({ operacao, parametros, descricao });
+                passosAplicados.push({ operation: operacao, parameters: parametros, descricao });
                 renderizarListaPassos();
             } catch (e) {
-                alert("Erro ao adicionar passo: " + e.message);
+                alert("Erro ao adicionar passo. Verifique os parâmetros (especialmente o formato JSON) e tente novamente. Erro: " + e.message);
             }
         });
 
@@ -215,11 +294,10 @@
 
         applyAllBtn.addEventListener('click', () => {
             spinner.style.display = 'block';
-
-            fetch(aplicarReceitaUrl, {
+            fetch(applyTransformUrl, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCsrfToken() },
-                body: JSON.stringify({ passos: passosAplicados })
+                body: JSON.stringify({ steps: passosAplicados })
             })
             .then(response => response.json())
             .then(data => {

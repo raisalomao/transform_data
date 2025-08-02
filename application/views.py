@@ -3,8 +3,8 @@ from django.shortcuts import render, redirect
 import pandas as pd
 import io
 import json
-from django.http import JsonResponse
-from .transformations import aplicar_transformacoes  # Importa as funções de transformação
+from django.http import HttpResponse, JsonResponse
+from .transformations import apply_transformations  # Importa as funções de transformação
 
 def home(request):
     """
@@ -62,18 +62,24 @@ def extract_data(request):
     return render(request, 'extract_page.html', context)
 
 def transform_data(request):
-    """ Prepara a página de transformação interativa, enviando os dados iniciais. """
+    """ Prepara a página de transformação, enviando dados para o HTML e para o JavaScript. """
     dataframe_json = request.session.get('dataframe_json')
     if not dataframe_json:
         return redirect('extracting_page')
+    
     df_original = pd.read_json(io.StringIO(dataframe_json), orient='split')
     request.session['dataframe_original_etl'] = df_original.to_json(orient='split')
+
     if 'dataframe_json_transformado' in request.session:
         del request.session['dataframe_json_transformado']
+
     context = {
         'titulo': 'Passo 2: Transformação Interativa',
-        'tabela_html': df_original.to_html(classes='table table-sm table-striped table-bordered', index=False),
-        'colunas_json': json.dumps(list(df_original.columns))
+        # Gera o HTML inicial com um limite de 100 linhas para não sobrecarregar
+        'tabela_html': df_original.head(100).to_html(classes='table table-sm table-striped table-bordered', index=False),
+        # Envia os dados completos como JSON para o JavaScript manipular
+        'colunas_json': json.dumps(list(df_original.columns)),
+        'linhas_json': df_original.to_json(orient='records')
     }
     return render(request, 'transform_page.html', context)
 
@@ -91,9 +97,10 @@ def apply_transform(request):
         df_original = pd.read_json(io.StringIO(df_json), orient='split')
 
         body = json.loads(request.body)
-        passos = body.get('passos', [])
+        steps = body.get('steps', []) # Alterado de 'passos' para 'steps'
 
-        df_transformado = aplicar_transformacoes(df_original, passos)
+        # Agora passamos a variável correta para a função
+        df_transformado = apply_transformations(df_original, steps)
         request.session['dataframe_json_transformado'] = df_transformado.to_json(orient='split')
 
         headers = list(df_transformado.columns)
@@ -126,3 +133,63 @@ def load_data(request):
         # 'json_data': json_final
     }
     return render(request, 'load_page.html', context)
+
+def download_csv(request):
+    """
+    Fornece o download do arquivo final em formato CSV.
+    """
+    dataframe_json = request.session.get('dataframe_json_transformado')
+    if not dataframe_json:
+        return redirect('extracting_page')
+    
+    df_final = pd.read_json(io.StringIO(dataframe_json), orient='split')
+    
+    # Cria uma resposta HTTP com o tipo de conteúdo para CSV
+    response = HttpResponse(content_type='text/csv; charset=utf-8')
+    # O cabeçalho 'Content-Disposition' força o download no navegador
+    response['Content-Disposition'] = 'attachment; filename="dados_transformados.csv"'
+    
+    # Escreve o DataFrame como CSV na resposta. sep=';' é bom para Excel em português.
+    df_final.to_csv(path_or_buf=response, index=False, sep=';', decimal=',')
+    return response
+
+def download_json_file(request):
+    """
+    Fornece o download do arquivo final em formato JSON.
+    """
+    dataframe_json = request.session.get('dataframe_json_transformado')
+    if not dataframe_json:
+        return redirect('extracting_page')
+    
+    df_final = pd.read_json(io.StringIO(dataframe_json), orient='split')
+    
+    response = HttpResponse(content_type='application/json')
+    response['Content-Disposition'] = 'attachment; filename="dados_transformados.json"'
+    
+    # Escreve o DataFrame como JSON na resposta
+    response.write(df_final.to_json(orient='records', indent=4))
+    return response
+
+def download_excel(request):
+    """
+    Fornece o download do arquivo final em formato XLSX (Excel).
+    """
+    dataframe_json = request.session.get('dataframe_json_transformado')
+    if not dataframe_json:
+        return redirect('extracting_page')
+    
+    df_final = pd.read_json(io.StringIO(dataframe_json), orient='split')
+    
+    # Usa um buffer na memória para criar o arquivo Excel
+    output = io.BytesIO()
+    with pd.ExcelWriter(output, engine='openpyxl') as writer:
+        df_final.to_excel(writer, index=False, sheet_name='Dados')
+    
+    output.seek(0) # Volta para o início do buffer
+    
+    response = HttpResponse(
+        output,
+        content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+    )
+    response['Content-Disposition'] = 'attachment; filename="dados_transformados.xlsx"'
+    return response

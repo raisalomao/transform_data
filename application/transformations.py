@@ -1,180 +1,179 @@
 import pandas as pd
 import numpy as np
 
-def adicionar_nova_coluna(df, nome_coluna, valor_padrao=""):
+# --- Transformation Functions ---
+
+def add_new_column(df, column_name, default_value=""):
     """Adiciona uma nova coluna com um valor padrão."""
-    df_copia = df.copy()
-    df_copia[nome_coluna] = valor_padrao
-    return df_copia
+    df_copy = df.copy()
+    df_copy[column_name] = default_value
+    return df_copy
 
-def mudar_tipo_coluna(df, nome_coluna, novo_tipo):
+def change_column_type(df, column_name, new_type):
     """
-    Muda o tipo de uma coluna.
-    Exemplos de novo_tipo: 'int64', 'float64', 'str', 'datetime64[ns]'
+    Altera o tipo de dado de uma coluna.
+    Exemplos para new_type: 'int64', 'float64', 'str', 'datetime64[ns]'
     """
-    df_copia = df.copy()
-    if nome_coluna not in df_copia.columns:
-        return df_copia
+    df_copy = df.copy()
+    if column_name not in df_copy.columns:
+        return df_copy
 
-    if novo_tipo == 'datetime':
-        df_copia[nome_coluna] = pd.to_datetime(df_copia[nome_coluna], errors='coerce')
+    if new_type == 'datetime':
+        df_copy[column_name] = pd.to_datetime(df_copy[column_name], errors='coerce')
     else:
         try:
-            # Usar 'ignore' pode não ser o ideal, pois não levanta erro.
-            # Uma abordagem melhor é tentar e, se falhar, não fazer nada.
-            if novo_tipo in ['int64', 'float64']:
-                 df_copia[nome_coluna] = pd.to_numeric(df_copia[nome_coluna], errors='coerce')
-            df_copia[nome_coluna] = df_copia[nome_coluna].astype(novo_tipo)
+            if new_type in ['int64', 'float64']:
+                 df_copy[column_name] = pd.to_numeric(df_copy[column_name], errors='coerce')
+            df_copy[column_name] = df_copy[column_name].astype(new_type)
         except Exception:
-            pass # Ignora se a conversão falhar
-    return df_copia
+            pass
+    return df_copy
 
-def substituir_valores(df, nome_coluna, para_substituir, novo_valor):
+def replace_values(df, column_name, value_to_replace, new_value):
     """Substitui um valor específico em uma coluna."""
-    df_copia = df.copy()
-    if nome_coluna in df_copia.columns:
-        df_copia[nome_coluna] = df_copia[nome_coluna].replace(para_substituir, novo_valor)
-    return df_copia
+    df_copy = df.copy()
+    if column_name in df_copy.columns:
+        df_copy[column_name] = df_copy[column_name].replace(value_to_replace, new_value)
+    return df_copy
 
-def apagar_linhas_nulas(df, subset_colunas=None):
-    """Remove linhas com valores nulos (NaN) ou em branco."""
-    df_copia = df.copy()
-    # Garante que subset_colunas seja uma lista de colunas existentes
-    if subset_colunas:
-        subset_colunas = [col for col in subset_colunas if col in df_copia.columns]
-    return df_copia.dropna(subset=subset_colunas if subset_colunas else None)
+def drop_null_rows(df, subset_columns=None):
+    """Remove linhas com valores nulos em colunas específicas."""
+    df_copy = df.copy()
+    if subset_columns:
+        subset_columns = [col for col in subset_columns if col in df_copy.columns]
+    return df_copy.dropna(subset=subset_columns if subset_columns else None)
 
-def remover_coluna(df, nome_coluna):
+def drop_column(df, column_name):
     """Remove uma ou mais colunas."""
-    df_copia = df.copy()
-    if not isinstance(nome_coluna, list):
-        nome_coluna = [nome_coluna]
-    return df_copia.drop(columns=nome_coluna, errors='ignore')
+    df_copy = df.copy()
+    if not isinstance(column_name, list):
+        column_name = [column_name]
+    return df_copy.drop(columns=column_name, errors='ignore')
 
-def remover_linhas_especificas(df, nome_coluna, valor):
+def filter_rows_by_value(df, column_name, value):
     """Remove linhas com base em um valor específico em uma coluna."""
-    df_copia = df.copy()
-    if nome_coluna in df_copia.columns:
-        # Garante que a comparação de tipos seja justa
+    df_copy = df.copy()
+    if column_name in df_copy.columns:
         try:
-            if pd.api.types.is_numeric_dtype(df_copia[nome_coluna]):
-                valor = type(df_copia[nome_coluna].iloc[0])(valor)
+            if pd.api.types.is_numeric_dtype(df_copy[column_name]):
+                value = type(df_copy[column_name].iloc[0])(value)
         except (ValueError, IndexError):
-            pass # Mantém o valor como string se a conversão falhar
-        return df_copia[df_copia[nome_coluna] != valor]
-    return df_copia
+            pass 
+        return df_copy[df_copy[column_name] != value]
+    return df_copy
     
-def mudar_case(df, nome_coluna, case='upper'):
+def change_case(df, column_name, case='upper'):
     """Altera o case de uma coluna de texto: 'upper', 'lower', 'title'."""
-    df_copia = df.copy()
-    if nome_coluna in df_copia.columns:
+    df_copy = df.copy()
+    if column_name in df_copy.columns:
         if case == 'upper':
-            df_copia[nome_coluna] = df_copia[nome_coluna].astype(str).str.upper()
+            df_copy[column_name] = df_copy[column_name].astype(str).str.upper()
         elif case == 'lower':
-            df_copia[nome_coluna] = df_copia[nome_coluna].astype(str).str.lower()
+            df_copy[column_name] = df_copy[column_name].astype(str).str.lower()
         elif case == 'title':
-            df_copia[nome_coluna] = df_copia[nome_coluna].astype(str).str.title()
-    return df_copia
+            df_copy[column_name] = df_copy[column_name].astype(str).str.title()
+    return df_copy
 
-def remover_duplicados(df, subset_colunas=None):
+def drop_duplicates(df, subset_columns=None):
     """Remove linhas duplicadas, considerando todas ou um subconjunto de colunas."""
-    df_copia = df.copy()
-    if subset_colunas:
-        subset_colunas = [col for col in subset_colunas if col in df_copia.columns]
-    return df_copia.drop_duplicates(subset=subset_colunas if subset_colunas else None)
+    df_copy = df.copy()
+    if subset_columns:
+        subset_columns = [col for col in subset_columns if col in df_copy.columns]
+    return df_copy.drop_duplicates(subset=subset_columns if subset_columns else None)
 
-def coluna_condicional(df, nova_coluna, coluna_base, condicoes, valor_padrao):
-    """Cria uma coluna com base em condições em outra."""
-    df_copia = df.copy()
-    if coluna_base not in df_copia.columns:
-        return df_copia
+def conditional_column(df, new_column_name, base_column, conditions, default_value):
+    """Cria uma coluna com base em condições em outra coluna."""
+    df_copy = df.copy()
+    if base_column not in df_copy.columns:
+        return df_copy
 
-    df_copia[coluna_base] = pd.to_numeric(df_copia[coluna_base], errors='coerce')
+    df_copy[base_column] = pd.to_numeric(df_copy[base_column], errors='coerce')
     
     conditions_list = []
     values_list = []
     
-    for item in condicoes:
+    for item in conditions: # ex: {'condition': '> 5000', 'value': 'Gold'}
         try:
             op_map = {'>': (lambda c, v: c > v), '<': (lambda c, v: c < v),
                       '>=': (lambda c, v: c >= v), '<=': (lambda c, v: c <= v),
                       '==': (lambda c, v: c == v), '!=': (lambda c, v: c != v)}
             
-            parts = item['condicao'].split()
+            parts = item['condition'].split()
             op_str = parts[0]
             val = float(parts[1])
             
-            conditions_list.append(op_map[op_str](df_copia[coluna_base], val))
-            values_list.append(item['valor'])
+            conditions_list.append(op_map[op_str](df_copy[base_column], val))
+            values_list.append(item['value'])
         except Exception:
             continue
 
-    df_copia[nova_coluna] = np.select(conditions_list, values_list, default=valor_padrao)
-    return df_copia
+    df_copy[new_column_name] = np.select(conditions_list, values_list, default=default_value)
+    return df_copy
 
-def extrair_de_data(df, nome_coluna):
+def extract_from_date(df, column_name):
     """Cria colunas de Ano, Mês e Dia a partir de uma coluna de data."""
-    df_copia = df.copy()
-    if nome_coluna in df_copia.columns:
-        s_date = pd.to_datetime(df_copia[nome_coluna], errors='coerce')
-        df_copia[f'Ano_{nome_coluna}'] = s_date.dt.year
-        df_copia[f'Mes_{nome_coluna}'] = s_date.dt.month
-        df_copia[f'Dia_{nome_coluna}'] = s_date.dt.day
-    return df_copia
+    df_copy = df.copy()
+    if column_name in df_copy.columns:
+        date_series = pd.to_datetime(df_copy[column_name], errors='coerce')
+        df_copy[f'Year_{column_name}'] = date_series.dt.year
+        df_copy[f'Month_{column_name}'] = date_series.dt.month
+        df_copy[f'Day_{column_name}'] = date_series.dt.day
+    return df_copy
 
-def separar_por_delimitador(df, nome_coluna, delimitador, novas_colunas):
-    """Divide uma coluna em várias com base em um delimitador."""
-    df_copia = df.copy()
-    if nome_coluna in df_copia.columns:
-        split_data = df_copia[nome_coluna].astype(str).str.split(delimitador, expand=True)
-        for i, col_name in enumerate(novas_colunas):
+def split_by_delimiter(df, column_name, delimiter, new_column_names):
+    """Divide uma coluna em várias colunas com base em um delimitador."""
+    df_copy = df.copy()
+    if column_name in df_copy.columns:
+        split_data = df_copy[column_name].astype(str).str.split(delimiter, expand=True)
+        for i, col_name in enumerate(new_column_names):
             if i < split_data.shape[1]:
-                df_copia[col_name] = split_data[i]
+                df_copy[col_name] = split_data[i]
             else:
-                df_copia[col_name] = None
-    return df_copia
+                df_copy[col_name] = None
+    return df_copy
 
-def group_by(df, colunas_agrupar, agregacoes):
+def group_by(df, group_by_columns, aggregations):
     """
-    Agrupa o DataFrame e aplica agregações.
-    agregacoes: {'coluna_a_agregar': 'sum', 'outra_coluna': 'mean'}
+    Agrupa o DataFrame por uma ou mais colunas e aplica agregações.
+    `group_by_columns` deve ser uma lista de colunas.
+    `aggregations` deve ser um dicionário onde as chaves são colunas e os valores são funções de agregação.
+    Exemplo: {'col1': 'sum', 'col2': 'mean'}
     """
-    df_copia = df.copy()
-    return df_copia.groupby(colunas_agrupar).agg(agregacoes).reset_index()
+    df_copy = df.copy()
+    return df_copy.groupby(group_by_columns).agg(aggregations).reset_index()
 
 
-# --- DICIONÁRIO E MOTOR PRINCIPAL ---
 OPERATIONS_MAP = {
-    'adicionar_nova_coluna': adicionar_nova_coluna,
-    'mudar_tipo_coluna': mudar_tipo_coluna,
-    'substituir_valores': substituir_valores,
-    'apagar_linhas_nulas': apagar_linhas_nulas,
-    'remover_coluna': remover_coluna,
-    'remover_linhas_especificas': remover_linhas_especificas,
-    'mudar_case': mudar_case,
-    'remover_duplicados': remover_duplicados,
-    'coluna_condicional': coluna_condicional,
-    'extrair_de_data': extrair_de_data,
-    'separar_por_delimitador': separar_por_delimitador,
+    'add_new_column': add_new_column,
+    'change_column_type': change_column_type,
+    'replace_values': replace_values,
+    'drop_null_rows': drop_null_rows,
+    'drop_column': drop_column,
+    'filter_rows_by_value': filter_rows_by_value,
+    'change_case': change_case,
+    'drop_duplicates': drop_duplicates,
+    'conditional_column': conditional_column,
+    'extract_from_date': extract_from_date,
+    'split_by_delimiter': split_by_delimiter,
     'group_by': group_by,
 }
 
-def aplicar_transformacoes(df, passos):
+def apply_transformations(df, steps):
     """
-    Aplica uma lista de passos de transformação a um DataFrame.
+    Aplica uma lista de etapas de transformação a um DataFrame.
     """
-    df_transformado = df.copy()
-    for passo in passos:
-        operacao = passo['operacao']
-        params = passo.get('parametros', {})
+    transformed_df = df.copy()
+    for step in steps:
+        operation = step['operation']
+        params = step.get('parameters', {})
         
-        if operacao in OPERATIONS_MAP:
-            funcao = OPERATIONS_MAP[operacao]
+        if operation in OPERATIONS_MAP:
+            func = OPERATIONS_MAP[operation]
             try:
-                df_transformado = funcao(df_transformado, **params)
+                transformed_df = func(transformed_df, **params)
             except Exception as e:
-                print(f"Erro ao aplicar '{operacao}' com params {params}: {e}")
+                print(f"Error applying '{operation}' with params {params}: {e}")
                 continue 
         else:
-            print(f"Atenção: Operação '{operacao}' não reconhecida.")
-    return df_transformado
+            print(f"Warning: Operation '{operation}' not recognized.")
+    return transformed_df
