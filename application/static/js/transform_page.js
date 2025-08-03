@@ -2,6 +2,7 @@ let colunasAtuais = [];
 let passosAplicados = [];
 
 window.addEventListener('DOMContentLoaded', () => {
+    
     const colunasDataEl = document.getElementById("colunas-json-data");
     const operationSelect = document.getElementById('operation-select');
     const paramsContainer = document.getElementById('params-container');

@@ -1,7 +1,12 @@
 import pandas as pd
 import numpy as np
+import json
 
-# --- Transformation Functions ---
+def sanitize_df(df):
+    """
+    Substitui valores NaN por None para garantir que a serialização para JSON seja válida.
+    """
+    return df.where(pd.notnull(df), None)
 
 def add_new_column(df, column_name, default_value=""):
     """Adiciona uma nova coluna com um valor padrão."""
@@ -18,15 +23,15 @@ def change_column_type(df, column_name, new_type):
     if column_name not in df_copy.columns:
         return df_copy
 
-    if new_type == 'datetime':
-        df_copy[column_name] = pd.to_datetime(df_copy[column_name], errors='coerce')
-    else:
-        try:
+    try:
+        if new_type == 'datetime':
+            df_copy[column_name] = pd.to_datetime(df_copy[column_name], errors='coerce')
+        else:
             if new_type in ['int64', 'float64']:
-                 df_copy[column_name] = pd.to_numeric(df_copy[column_name], errors='coerce')
+                df_copy[column_name] = pd.to_numeric(df_copy[column_name], errors='coerce')
             df_copy[column_name] = df_copy[column_name].astype(new_type)
-        except Exception:
-            pass
+    except Exception as e:
+        print(f"Erro em change_column_type para a coluna '{column_name}': {e}")
     return df_copy
 
 def replace_values(df, column_name, value_to_replace, new_value):
@@ -57,11 +62,11 @@ def filter_rows_by_value(df, column_name, value):
         try:
             if pd.api.types.is_numeric_dtype(df_copy[column_name]):
                 value = type(df_copy[column_name].iloc[0])(value)
-        except (ValueError, IndexError):
-            pass 
+        except (ValueError, IndexError) as e:
+            print(f"Erro ao converter o valor para a coluna '{column_name}': {e}")
         return df_copy[df_copy[column_name] != value]
     return df_copy
-    
+
 def change_case(df, column_name, case='upper'):
     """Altera o case de uma coluna de texto: 'upper', 'lower', 'title'."""
     df_copy = df.copy()
@@ -88,23 +93,30 @@ def conditional_column(df, new_column_name, base_column, conditions, default_val
         return df_copy
 
     df_copy[base_column] = pd.to_numeric(df_copy[base_column], errors='coerce')
-    
     conditions_list = []
     values_list = []
     
-    for item in conditions: # ex: {'condition': '> 5000', 'value': 'Gold'}
+    for item in conditions:
         try:
-            op_map = {'>': (lambda c, v: c > v), '<': (lambda c, v: c < v),
-                      '>=': (lambda c, v: c >= v), '<=': (lambda c, v: c <= v),
-                      '==': (lambda c, v: c == v), '!=': (lambda c, v: c != v)}
+            op_map = {
+                '>':  (lambda c, v: c > v),
+                '<':  (lambda c, v: c < v),
+                '>=': (lambda c, v: c >= v),
+                '<=': (lambda c, v: c <= v),
+                '==': (lambda c, v: c == v),
+                '!=': (lambda c, v: c != v)
+            }
             
             parts = item['condition'].split()
+            if len(parts) < 2:
+                continue
             op_str = parts[0]
             val = float(parts[1])
             
-            conditions_list.append(op_map[op_str](df_copy[base_column], val))
+            conditions_list.append(op_map.get(op_str, lambda c,v: False)(df_copy[base_column], val))
             values_list.append(item['value'])
-        except Exception:
+        except Exception as e:
+            print(f"Erro ao aplicar condição em conditional_column: {e}")
             continue
 
     df_copy[new_column_name] = np.select(conditions_list, values_list, default=default_value)
@@ -115,9 +127,9 @@ def extract_from_date(df, column_name):
     df_copy = df.copy()
     if column_name in df_copy.columns:
         date_series = pd.to_datetime(df_copy[column_name], errors='coerce')
-        df_copy[f'Year_{column_name}'] = date_series.dt.year
-        df_copy[f'Month_{column_name}'] = date_series.dt.month
-        df_copy[f'Day_{column_name}'] = date_series.dt.day
+        df_copy[f'Ano{column_name}'] = date_series.dt.year
+        df_copy[f'Mês{column_name}'] = date_series.dt.month
+        df_copy[f'Dia{column_name}'] = date_series.dt.day
     return df_copy
 
 def split_by_delimiter(df, column_name, delimiter, new_column_names):
@@ -160,11 +172,12 @@ OPERATIONS_MAP = {
 
 def apply_transformations(df, steps):
     """
-    Aplica uma lista de etapas de transformação a um DataFrame.
+    Aplica uma lista de etapas de transformação a um DataFrame e garante que os dados
+    possam ser convertidos para JSON sem erros (substituindo NaN por null).
     """
     transformed_df = df.copy()
     for step in steps:
-        operation = step['operation']
+        operation = step.get('operation')
         params = step.get('parameters', {})
         
         if operation in OPERATIONS_MAP:
@@ -172,8 +185,10 @@ def apply_transformations(df, steps):
             try:
                 transformed_df = func(transformed_df, **params)
             except Exception as e:
-                print(f"Error applying '{operation}' with params {params}: {e}")
-                continue 
+                print(f"Erro ao aplicar '{operation}' com parâmetros {params}: {e}")
+                continue
         else:
-            print(f"Warning: Operation '{operation}' not recognized.")
+            print(f"Aviso: Operação '{operation}' não reconhecida.")
+    
+    transformed_df = sanitize_df(transformed_df)
     return transformed_df
