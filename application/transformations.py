@@ -86,38 +86,38 @@ def drop_duplicates(df, subset_columns=None):
         subset_columns = [col for col in subset_columns if col in df_copy.columns]
     return df_copy.drop_duplicates(subset=subset_columns if subset_columns else None)
 
-def conditional_column(df, new_column_name, base_column, conditions, default_value):
-    """Cria uma coluna com base em condições em outra coluna."""
+def conditional_column(df, new_column_name, clauses, default_value):
+    """
+    Cria uma nova coluna com base em m�ltiplas cl�usulas condicionais.
+    """
     df_copy = df.copy()
-    if base_column not in df_copy.columns:
-        return df_copy
-
-    df_copy[base_column] = pd.to_numeric(df_copy[base_column], errors='coerce')
     conditions_list = []
     values_list = []
-    
-    for item in conditions:
-        try:
-            op_map = {
-                '>':  (lambda c, v: c > v),
-                '<':  (lambda c, v: c < v),
-                '>=': (lambda c, v: c >= v),
-                '<=': (lambda c, v: c <= v),
-                '==': (lambda c, v: c == v),
-                '!=': (lambda c, v: c != v)
-            }
-            
-            parts = item['condition'].split()
-            if len(parts) < 2:
-                continue
-            op_str = parts[0]
-            val = float(parts[1])
-            
-            conditions_list.append(op_map.get(op_str, lambda c,v: False)(df_copy[base_column], val))
-            values_list.append(item['value'])
-        except Exception as e:
-            print(f"Erro ao aplicar condição em conditional_column: {e}")
+
+    op_map = {
+        '>': lambda col, val: pd.to_numeric(col, errors='coerce') > pd.to_numeric(val, errors='coerce'),
+        '<': lambda col, val: pd.to_numeric(col, errors='coerce') < pd.to_numeric(val, errors='coerce'),
+        '>=': lambda col, val: pd.to_numeric(col, errors='coerce') >= pd.to_numeric(val, errors='coerce'),
+        '<=': lambda col, val: pd.to_numeric(col, errors='coerce') <= pd.to_numeric(val, errors='coerce'),
+        '==': lambda col, val: col.astype(str) == str(val),
+        '!=': lambda col, val: col.astype(str) != str(val),
+        'contains': lambda col, val: col.astype(str).str.contains(str(val), case=False, na=False),
+        'starts_with': lambda col, val: col.astype(str).str.startswith(str(val), na=False)
+    }
+
+    for clause in clauses:
+        if_column = clause.get('if_column')
+        operator = clause.get('operator')
+        value_to_compare = clause.get('value')
+        then_value = clause.get('then_value')
+
+        if not all([if_column, operator, value_to_compare is not None, then_value is not None]) or if_column not in df_copy.columns:
             continue
+
+        if operator in op_map:
+            condition = op_map[operator](df_copy[if_column], value_to_compare)
+            conditions_list.append(condition)
+            values_list.append(then_value)
 
     df_copy[new_column_name] = np.select(conditions_list, values_list, default=default_value)
     return df_copy
