@@ -2,6 +2,15 @@ body {
     background-color: #f8f9fa; 
 }
 
+html, body {
+    height: 100%;
+}
+
+.container-fluid > .row {
+    height: 100%;
+}
+
+
 .control-panel { 
     background-color: white; 
     padding: 1.5rem; 
@@ -22,8 +31,8 @@ body {
 #data-table-container { 
     min-height: 400px; 
     max-height: 83vh; 
-    /* min-width: 1500px; */
     overflow-y: auto; 
+    overflow-x: auto;
 }
 
 .form-text { 
@@ -55,7 +64,23 @@ textarea {
 }
 
 #recipe-list.scrollable-list {
-    /* max-height: 130px; */
     max-height: 200px;
     overflow-y: auto;
+}
+
+#macro-list-container.scrollable-list {
+    max-height: 200px;
+    overflow-y: auto;
+}
+
+.card-body.scrollable-list {
+    max-height: 200px;
+    overflow-y: auto;
+    padding-right: 10px;
+}
+
+.sidebar-scrollable {
+    max-height: 90vh;  /* ou 100vh se preferir ocupar toda a tela */
+    overflow-y: auto;
+    padding-right: 8px; /* espaço pro scrollbar */
 }

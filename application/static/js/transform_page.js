@@ -149,8 +149,10 @@ window.addEventListener('DOMContentLoaded', () => {
         const macros = getMacrosFromStorage();
         if (!macros || macros.length === 0) {
             macroListContainer.innerHTML = '<div class="card-body"><p class="text-muted">Nenhuma macro salva ainda.</p></div>';
+            macroListContainer.classList.remove('scrollable-list');
             return;
         }
+
         let listHtml = '<ul class="list-group">';
         macros.forEach(macro => {
             listHtml += `
@@ -162,6 +164,7 @@ window.addEventListener('DOMContentLoaded', () => {
         });
         listHtml += '</ul>';
         macroListContainer.innerHTML = listHtml;
+        macroListContainer.classList.toggle('scrollable-list', macros.length >= 5);
     }
 
     // Função central para aplicar transformações
