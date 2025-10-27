@@ -1,0 +1,120 @@
+html, body {
+  height: 100%;
+  margin: 0;
+}
+
+body {
+    display: flex;
+    flex-direction: column;
+    font-family: 'Inter', sans-serif !important;
+    background: linear-gradient(to right, #ffffff, #f8f9fa);
+    color: #444444;
+}
+
+.container-fluid > .row {
+    height: 100%;
+}
+
+.control-panel { 
+    background-color: white; 
+    padding: 1.5rem; 
+    border-radius: 0.5rem; 
+    box-shadow: 0 2px 10px rgba(0,0,0,0.1); 
+}
+
+.recipe-step { 
+    background-color: #e9ecef; 
+    padding: 0.5rem 1rem; 
+    margin-bottom: 0.5rem; 
+    border-radius: 0.25rem; 
+    display: flex; 
+    justify-content: space-between; 
+    align-items: center; 
+}
+
+#data-table-container { 
+    min-height: 400px; 
+    max-height: 83vh; 
+    overflow-y: auto; 
+    overflow-x: auto;
+}
+
+.form-text { 
+    font-size: 0.8rem; 
+}
+
+textarea { 
+    font-family: monospace; 
+    font-size: 0.9rem; 
+}
+
+.macro-list-item { 
+    cursor: pointer; 
+}
+
+.macro-list-item:hover { 
+    background-color: #f1f3f5; 
+
+}
+#data-table-container table thead th {
+    text-align: center;
+    vertical-align: middle;
+}
+
+.scrollable-list {
+    max-height: 10px;
+    overflow-y: auto;
+    padding-right: 10px;
+}
+
+#recipe-list.scrollable-list {
+    max-height: 200px;
+    overflow-y: auto;
+}
+
+#macro-list-container.scrollable-list {
+    max-height: 200px;
+    overflow-y: auto;
+}
+
+.card-body.scrollable-list {
+    max-height: 200px;
+    overflow-y: auto;
+    padding-right: 10px;
+}
+
+.sidebar-scrollable {
+    max-height: 90vh; 
+    overflow-y: auto;
+    padding-right: 8px;
+}
+
+@keyframes slideInLeft {
+  from {
+      transform: translateX(-50px);
+      opacity: 0;
+  }
+  to {
+      transform: translateX(0);
+      opacity: 1;
+  }
+}
+
+.animate-slide-in {
+    animation: slideInLeft 0.5s ease-out forwards;
+}
+
+@keyframes slideInUp {
+  from {
+      transform: translateY(50px);
+      opacity: 0;
+  }
+  to {
+      transform: translateY(0);
+      opacity: 1;
+  }
+}
+
+.animate-slide-in-up {
+    animation: slideInUp 1.0s ease-out forwards;
+}
